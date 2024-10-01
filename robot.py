@@ -11,7 +11,8 @@ from robot_map import USB
 from robotpy_ext.autonomous import AutonomousModeSelector
 import ntcore
 import logging
-
+from wpimath.filter import SlewRateLimiter
+from wpimath import applyDeadband
 
 class MyRobot(wpilib.TimedRobot):
     def robotInit(self):
@@ -33,6 +34,7 @@ class MyRobot(wpilib.TimedRobot):
         self.Intake = Intake(self.controller)
         self.components = {"DriveTrain": self.DriveTrain, "Shooter": self.Shooter, "Climber": self.Climber, "Intake": self.Intake, "LimeLight": self.LimeLight}
         self.auto = AutonomousModeSelector("autonomous", self.components)
+
 
 
     def autonomousInit(self):

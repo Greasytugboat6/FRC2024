@@ -6,6 +6,8 @@ from navx import AHRS
 from wpimath.controller import PIDController
 import time
 from robot_map import CAN
+from wpimath.filter import SlewRateLimiter
+from wpimath import applyDeadband
 
 class DriveTrain:
     def __init__(self, controller, LimeLight):
@@ -45,22 +47,7 @@ class DriveTrain:
 
     def teleopPeriodic(self):
         # Handles the movement of the drive base.
-        if self.Shooterforward:
-            print("shooter forward")
-            self.robotDrive.driveCartesian(
-                self.controller.getLeftY(),
-                -self.controller.getLeftX(),
-                self.controller.getRightX(),
-                -self.gyroscope.getRotation2d(),
-            )
-        else:
-            print("intake forward")
-            self.robotDrive.driveCartesian(
-                -self.controller.getLeftY(),
-                self.controller.getLeftX(),
-                self.controller.getRightX(),
-                -self.gyroscope.getRotation2d(),
-            )
+        self.driveWithJoystick
            
         if self.controller.getBackButton():
             self.gyroscope.reset()
@@ -108,4 +95,43 @@ class DriveTrain:
         self.turnPIDVal = self.turnPIDCam.calculate(turnError, turnTarget)
         self.drivePIDVal = self.drivePIDCam.calculate(driveError, driveTarget)
         self.lastPIDExec = time.time()
+
+
+    def driveWithJoystick(self, fieldRelative: bool) -> None:
+        # Get the x speed. We are inverting this because Xbox controllers return
+        # negative values when we push forward.
+        xSpeed = (
+            -self.xSpeedLimiter.calculate(
+                applyDeadband(self.controller.getLeftY(), 0.02)
+            )
+            * self.DriveTrain.kMaxSpeed
+        )
+
+        # Get the y speed or sideways/strafe speed. We are inverting this because
+        # we want a positive value when we pull to the left. Xbox controllers
+        # return positive values when you pull to the right by default.
+        ySpeed = (
+            -self.ySpeedLimiter.calculate(
+                applyDeadband(self.controller.getLeftX(), 0.02)
+            )
+            * self.DriveTrain.kMaxSpeed
+        )
+
+        # Get the rate of angular rotation. We are inverting this because we want a
+        # positive value when we pull to the left (remember, CCW is positive in
+        # mathematics). Xbox controllers return positive values when you pull to
+        # the right by default.
+        rot = (
+            -self.rotSpeedLimiter.calculate(
+                applyDeadband(self.controller.getRightX(), 0.02)
+            )
+            * self.DriveTrain.kMaxSpeed
+        )
+        if self.Shooterforward:
+            xSpeed *= -1
+            ySpeed *= -1
+        if fieldRelative:
+            self.robotDrive.driveCartesian(xSpeed, ySpeed, rot, -self.gyroscope.getRotation2d())
+        else:
+            self.robotDrive.driveCartesian(xSpeed, ySpeed, rot)
 
